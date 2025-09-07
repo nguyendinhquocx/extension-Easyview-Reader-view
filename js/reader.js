@@ -3970,6 +3970,7 @@
             }
             initToolbarAutoHide() {
                 let lastScrollY = 0;
+                let translationThrottle = 0;
                 const toolbar = document.getElementById('toolbar');
                 const body = document.body;
                 
@@ -3989,6 +3990,13 @@
                         console.log('Showing toolbar'); // Debug log
                         toolbar.classList.remove('hidden');
                         body.classList.remove('toolbar-hidden');
+                    }
+                    
+                    // Trigger translation refresh for newly visible content (throttled)
+                    const now = Date.now();
+                    if (now - translationThrottle > 1000) { // Max once per second
+                        this.refreshTranslation();
+                        translationThrottle = now;
                     }
                     
                     lastScrollY = currentScrollY;
@@ -4011,6 +4019,74 @@
                 };
                 
                 tryAttachScrollListener();
+            }
+            refreshTranslation() {
+                // Trigger browser translation for newly visible content
+                try {
+                    if (this.iframe && this.iframe.contentDocument) {
+                        const iframeDoc = this.iframe.contentDocument;
+                        
+                        // Method 1: Dispatch translate event
+                        const translateEvent = new Event('translate', { bubbles: true });
+                        iframeDoc.dispatchEvent(translateEvent);
+                        
+                        // Method 2: Trigger Google Translate if present
+                        if (window.google && window.google.translate) {
+                            window.google.translate.TranslateElement();
+                        }
+                        
+                        // Method 3: Signal browser that content changed
+                        const mutationEvent = new Event('DOMContentLoaded', { bubbles: true });
+                        iframeDoc.dispatchEvent(mutationEvent);
+                        
+                        // Method 4: Add/remove temporary element to trigger re-scan
+                        const tempDiv = iframeDoc.createElement('div');
+                        tempDiv.style.display = 'none';
+                        tempDiv.setAttribute('translate', 'yes');
+                        tempDiv.textContent = 'trigger-translation';
+                        iframeDoc.body.appendChild(tempDiv);
+                        
+                        setTimeout(() => {
+                            if (tempDiv.parentNode) {
+                                tempDiv.parentNode.removeChild(tempDiv);
+                            }
+                        }, 100);
+                    }
+                } catch (error) {
+                    console.log('Translation refresh error:', error);
+                }
+            }
+            initTranslationSupport() {
+                try {
+                    if (this.iframe && this.iframe.contentDocument) {
+                        const iframeDoc = this.iframe.contentDocument;
+                        
+                        // Add translation attributes to make content translatable
+                        iframeDoc.body.setAttribute('translate', 'yes');
+                        iframeDoc.documentElement.setAttribute('translate', 'yes');
+                        
+                        // Add lang attribute if not present
+                        if (!iframeDoc.documentElement.getAttribute('lang')) {
+                            iframeDoc.documentElement.setAttribute('lang', 'auto');
+                        }
+                        
+                        // Mark all text content as translatable
+                        const textElements = iframeDoc.querySelectorAll('p, div, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote');
+                        textElements.forEach(element => {
+                            if (element.textContent.trim().length > 0) {
+                                element.setAttribute('translate', 'yes');
+                            }
+                        });
+                        
+                        // Signal to browser that page is ready for translation
+                        setTimeout(() => {
+                            const readyEvent = new Event('DOMContentLoaded', { bubbles: true });
+                            iframeDoc.dispatchEvent(readyEvent);
+                        }, 500);
+                    }
+                } catch (error) {
+                    console.log('Translation init error:', error);
+                }
             }
             addRangeListeners() {
                 if (this.fontSizeInput) this.fontSizeInput.onchange = () => {
@@ -4246,6 +4322,7 @@
                         // Delay to ensure iframe is fully rendered
                         setTimeout(() => {
                             this.initToolbarAutoHide();
+                            this.initTranslationSupport();
                         }, 100);
                     }
                 })), [ ...this.iframe.contentDocument.querySelectorAll("article>*") ].forEach((D => D.setAttribute("dir", "auto")));
