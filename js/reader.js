@@ -3973,6 +3973,7 @@
                 let translationThrottle = 0;
                 const toolbar = document.getElementById('toolbar');
                 const body = document.body;
+                const homeBtn = document.getElementById('home-btn');
                 
                 const handleScroll = () => {
                     if (!this.iframe || !this.iframe.contentWindow) return;
@@ -3981,15 +3982,17 @@
                     console.log('Scroll Y:', currentScrollY); // Debug log
                     
                     if (currentScrollY > 50) {
-                        // Past threshold - hide toolbar and show floating close button
+                        // Past threshold - hide toolbar and show floating close button and home button
                         console.log('Hiding toolbar'); // Debug log
                         toolbar.classList.add('hidden');
                         body.classList.add('toolbar-hidden');
+                        if (homeBtn) homeBtn.classList.add('visible');
                     } else if (currentScrollY <= 10) {
-                        // At top of page - show full toolbar
+                        // At top of page - show full toolbar and hide home button
                         console.log('Showing toolbar'); // Debug log
                         toolbar.classList.remove('hidden');
                         body.classList.remove('toolbar-hidden');
+                        if (homeBtn) homeBtn.classList.remove('visible');
                     }
                     
                     // Trigger translation refresh for newly visible content (throttled)
@@ -4019,6 +4022,15 @@
                 };
                 
                 tryAttachScrollListener();
+                
+                // Add home button click listener
+                if (homeBtn) {
+                    homeBtn.addEventListener('click', () => {
+                        if (this.iframe && this.iframe.contentWindow) {
+                            this.iframe.contentWindow.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                    });
+                }
             }
             refreshTranslation() {
                 // Trigger browser translation for newly visible content
