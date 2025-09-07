@@ -3968,6 +3968,34 @@
                     if (h) h.classList.remove('hidden-scrollbar');
                 }
             }
+            initToolbarAutoHide() {
+                let lastScrollY = 0;
+                const toolbar = document.getElementById('toolbar');
+                const body = document.body;
+                
+                const handleScroll = () => {
+                    if (!this.iframe || !this.iframe.contentWindow) return;
+                    
+                    const currentScrollY = this.iframe.contentWindow.pageYOffset;
+                    
+                    if (currentScrollY > 50) {
+                        // Past threshold - hide toolbar and show floating close button
+                        toolbar.classList.add('hidden');
+                        body.classList.add('toolbar-hidden');
+                    } else if (currentScrollY <= 10) {
+                        // At top of page - show full toolbar
+                        toolbar.classList.remove('hidden');
+                        body.classList.remove('toolbar-hidden');
+                    }
+                    
+                    lastScrollY = currentScrollY;
+                };
+                
+                // Add scroll listener to iframe
+                if (this.iframe && this.iframe.contentWindow) {
+                    this.iframe.contentWindow.addEventListener('scroll', handleScroll, { passive: true });
+                }
+            }
             addRangeListeners() {
                 if (this.fontSizeInput) this.fontSizeInput.onchange = () => {
                     var D;
@@ -4139,7 +4167,10 @@
                 this.iframe.contentDocument.open(), this.iframe.contentDocument.write(D), this.iframe.contentDocument.close(),
                 this.iframe.contentDocument.documentElement.appendChild(this.iframeCss), this.iframe.addEventListener("load", (() => {
                     var D;
-                    if ((D = this.iframe) === null || D === void 0 ? void 0 : D.contentDocument) this.iframe.contentDocument.body.dataset.loaded = String(true);
+                    if ((D = this.iframe) === null || D === void 0 ? void 0 : D.contentDocument) {
+                        this.iframe.contentDocument.body.dataset.loaded = String(true);
+                        this.initToolbarAutoHide();
+                    }
                 })), [ ...this.iframe.contentDocument.querySelectorAll("article>*") ].forEach((D => D.setAttribute("dir", "auto")));
                 const h = this.iframe.contentDocument.getElementById("reader-domain");
                 if (h) h.onclick = () => (history.back(), false);
