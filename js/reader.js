@@ -3889,7 +3889,7 @@
                 this.pageWidthInput = null, this.lineHeightInput = null, this.showImagesInput = null,
                 this.showLinksInput = null, this.themeBtns = [], this.toolBarBtns = [], this.nextBtn = null,
                 this.previousBtn = null, this.articleData = D, this.settings = h, this.onActivity = z,
-                this.iframeCss = document.createElement("style");
+                this.iframeCss = document.createElement("style"), this.clickOutsideHandler = null, this.keydownHandler = null, this.iframeClickHandler = null;
             }
             run() {
                 this.getElements(), this.createRanges(), this.createFontSelect(), this.addEventListeners(),
@@ -3977,13 +3977,16 @@
                     if (!this.iframe || !this.iframe.contentWindow) return;
                     
                     const currentScrollY = this.iframe.contentWindow.pageYOffset;
+                    console.log('Scroll Y:', currentScrollY); // Debug log
                     
                     if (currentScrollY > 50) {
                         // Past threshold - hide toolbar and show floating close button
+                        console.log('Hiding toolbar'); // Debug log
                         toolbar.classList.add('hidden');
                         body.classList.add('toolbar-hidden');
                     } else if (currentScrollY <= 10) {
                         // At top of page - show full toolbar
+                        console.log('Showing toolbar'); // Debug log
                         toolbar.classList.remove('hidden');
                         body.classList.remove('toolbar-hidden');
                     }
@@ -3991,10 +3994,23 @@
                     lastScrollY = currentScrollY;
                 };
                 
-                // Add scroll listener to iframe
-                if (this.iframe && this.iframe.contentWindow) {
-                    this.iframe.contentWindow.addEventListener('scroll', handleScroll, { passive: true });
-                }
+                // Retry function to attach scroll listener
+                const tryAttachScrollListener = (retries = 0) => {
+                    if (retries > 10) {
+                        console.log('Failed to attach scroll listener after 10 retries');
+                        return;
+                    }
+                    
+                    if (this.iframe && this.iframe.contentWindow && this.iframe.contentDocument) {
+                        console.log('Successfully adding scroll listener to iframe');
+                        this.iframe.contentWindow.addEventListener('scroll', handleScroll, { passive: true });
+                    } else {
+                        console.log(`Iframe not ready, retry ${retries + 1}/10`);
+                        setTimeout(() => tryAttachScrollListener(retries + 1), 200);
+                    }
+                };
+                
+                tryAttachScrollListener();
             }
             addRangeListeners() {
                 if (this.fontSizeInput) this.fontSizeInput.onchange = () => {
@@ -4071,7 +4087,65 @@
                 var h;
                 if (!this.settingsBlock) return;
                 const z = this.settingsBlock.classList.contains("hidden"), j = z ? "remove" : "add", F = z ? "add" : "remove";
-                if (this.settingsBlock.classList[j]("hidden"), D.classList[F]("active"), z) this.settingsBlock.focus(); else (h = this.iframe) === null || h === void 0 || h.focus();
+                this.settingsBlock.classList[j]("hidden"), D.classList[F]("active");
+                if (z) {
+                    this.settingsBlock.focus();
+                    this.addClickOutsideListener();
+                } else {
+                    this.removeClickOutsideListener();
+                    (h = this.iframe) === null || h === void 0 || h.focus();
+                }
+            }
+            addClickOutsideListener() {
+                this.clickOutsideHandler = (event) => {
+                    if (!this.settingsBlock || !this.settingsBlock.contains(event.target) && 
+                        !event.target.closest('.icon-settings')) {
+                        this.closeSettings();
+                    }
+                };
+                this.iframeClickHandler = () => {
+                    if (!this.settingsBlock.classList.contains('hidden')) {
+                        this.closeSettings();
+                    }
+                };
+                this.keydownHandler = (event) => {
+                    if (event.key === 'Escape' && !this.settingsBlock.classList.contains('hidden')) {
+                        this.closeSettings();
+                    }
+                };
+                
+                // Add listeners to main document
+                document.addEventListener('click', this.clickOutsideHandler, true);
+                document.addEventListener('keydown', this.keydownHandler, true);
+                
+                // Add listener to iframe document if available
+                if (this.iframe && this.iframe.contentWindow && this.iframe.contentDocument) {
+                    this.iframe.contentDocument.addEventListener('click', this.iframeClickHandler, true);
+                }
+            }
+            removeClickOutsideListener() {
+                if (this.clickOutsideHandler) {
+                    document.removeEventListener('click', this.clickOutsideHandler, true);
+                    this.clickOutsideHandler = null;
+                }
+                if (this.iframeClickHandler) {
+                    if (this.iframe && this.iframe.contentDocument) {
+                        this.iframe.contentDocument.removeEventListener('click', this.iframeClickHandler, true);
+                    }
+                    this.iframeClickHandler = null;
+                }
+                if (this.keydownHandler) {
+                    document.removeEventListener('keydown', this.keydownHandler, true);
+                    this.keydownHandler = null;
+                }
+            }
+            closeSettings() {
+                if (!this.settingsBlock) return;
+                const settingsBtn = document.querySelector('.icon-settings');
+                this.settingsBlock.classList.add("hidden");
+                if (settingsBtn) settingsBtn.classList.remove("active");
+                this.removeClickOutsideListener();
+                if (this.iframe) this.iframe.focus();
             }
             createRanges() {
                 if (this.fontSizeInput) (0, F.default)(this.fontSizeInput).jRange({
@@ -4169,7 +4243,10 @@
                     var D;
                     if ((D = this.iframe) === null || D === void 0 ? void 0 : D.contentDocument) {
                         this.iframe.contentDocument.body.dataset.loaded = String(true);
-                        this.initToolbarAutoHide();
+                        // Delay to ensure iframe is fully rendered
+                        setTimeout(() => {
+                            this.initToolbarAutoHide();
+                        }, 100);
                     }
                 })), [ ...this.iframe.contentDocument.querySelectorAll("article>*") ].forEach((D => D.setAttribute("dir", "auto")));
                 const h = this.iframe.contentDocument.getElementById("reader-domain");
