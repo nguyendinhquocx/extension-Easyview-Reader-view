@@ -3794,6 +3794,12 @@
                     });
                     break;
 
+                  case 'toggle-scrollbar':
+                    this.storage.updateSettings({
+                        hideScrollbar: D.data
+                    });
+                    break;
+
                   case q.ReaderViewAction.OPEN_URL:
                     this.openUrl(D.data);
                     break;
@@ -3886,7 +3892,7 @@
             }
             run() {
                 this.getElements(), this.createRanges(), this.createFontSelect(), this.addEventListeners(),
-                this.addMessageListeners(), this.render(), this.updateReaderUi(), this.setTips();
+                this.addMessageListeners(), this.render(), this.updateReaderUi(), this.setTips(), this.initScrollbarState();
             }
             getHtml() {
                 var D, h;
@@ -3916,6 +3922,8 @@
                         this.settingsBtnClick(D);
                     })); else if (h === "fullscreen") return D.addEventListener("click", (() => {
                         this.setFullscreen();
+                    })); else if (h === "toggle-scrollbar") return D.addEventListener("click", (() => {
+                        this.toggleScrollbar(D);
                     }));
                     D.addEventListener("click", (() => {
                         const D = h, z = {
@@ -3928,6 +3936,36 @@
             setFullscreen() {
                 if (!this.iframe) return;
                 this.iframe.requestFullscreen();
+            }
+            toggleScrollbar(D) {
+                const h = document.body;
+                const z = h.classList.contains('hide-scrollbar');
+                if (z) {
+                    h.classList.remove('hide-scrollbar');
+                    D.classList.remove('hidden-scrollbar');
+                    this.settings.hideScrollbar = false;
+                } else {
+                    h.classList.add('hide-scrollbar');
+                    D.classList.add('hidden-scrollbar');
+                    this.settings.hideScrollbar = true;
+                }
+                this.updateIframeUi();
+                const j = {
+                    action: 'toggle-scrollbar',
+                    data: this.settings.hideScrollbar
+                };
+                this.onActivity(j);
+            }
+            initScrollbarState() {
+                const D = document.body;
+                const h = this.toolBarBtns.find(z => z.dataset.cmd === 'toggle-scrollbar');
+                if (this.settings.hideScrollbar) {
+                    D.classList.add('hide-scrollbar');
+                    if (h) h.classList.add('hidden-scrollbar');
+                } else {
+                    D.classList.remove('hide-scrollbar');
+                    if (h) h.classList.remove('hidden-scrollbar');
+                }
             }
             addRangeListeners() {
                 if (this.fontSizeInput) this.fontSizeInput.onchange = () => {
@@ -4140,7 +4178,31 @@
                     "ibm-plex-serif": "IBM Plex Serif",
                     montserrat: "Montserrat",
                     "zilla-slab": "Zilla Slab"
-                }, j = `\n    body {\n      font-size:  ${this.settings.fontSize}px;\n      font-family: ${z[this.settings.fontFamily]}, 'sans-serif';\n      line-height: ${this.settings.lineHeight ? this.settings.lineHeight + "px" : "unset"};\n      width: ${this.settings.pageWidth ? this.settings.pageWidth + "px" : "calc(100vw - 50px)"};\n    }\n    `;
+                };
+                const scrollbarCss = this.settings.hideScrollbar ? `
+    body {
+      scrollbar-width: none !important;
+      scrollbar-color: unset !important;
+    }
+    body::-webkit-scrollbar {
+      display: none !important;
+    }
+    * {
+      scrollbar-width: none !important;
+    }
+    *::-webkit-scrollbar {
+      display: none !important;
+    }
+                ` : '';
+                const j = `
+    body {
+      font-size:  ${this.settings.fontSize}px;
+      font-family: ${z[this.settings.fontFamily]}, 'sans-serif';
+      line-height: ${this.settings.lineHeight ? this.settings.lineHeight + "px" : "unset"};
+      width: ${this.settings.pageWidth ? this.settings.pageWidth + "px" : "calc(100vw - 50px)"};
+    }
+    ${scrollbarCss}
+    `;
                 this.iframe.contentDocument.body.dataset.images = String(this.settings.showImages),
                 this.iframe.contentDocument.body.dataset.links = String(this.settings.showLinks),
                 this.iframe.contentDocument.body.dataset.mode = String(this.settings.theme), this.iframeCss.textContent = j;
@@ -4262,7 +4324,8 @@
             lineHeight: 28,
             showLinks: true,
             showImages: true,
-            theme: "white"
+            theme: "white",
+            hideScrollbar: true
         }, z.DEFAULT_SETTINGS = Object.assign({}, z.DEFAULT_VIEWER_SETTINGS);
         class F {
             constructor() {
