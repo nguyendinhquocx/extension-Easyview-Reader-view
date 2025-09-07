@@ -3728,6 +3728,7 @@
                     const F = z[h];
                     if (F in D) j[F] = D[F];
                 }
+                j.hideScrollbar = true;
                 h = j, this.viewer = new A.default(this.articleData, h, (D => {
                     this.onViewerActivity(D);
                 })), this.viewer.run();
