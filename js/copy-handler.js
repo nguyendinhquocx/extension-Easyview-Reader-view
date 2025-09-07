@@ -59,14 +59,14 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Simple test function first
-function testCopy() {
+function testCopy(copyButton) {
     const testText = 'Test copy functionality works!\n\nThis is a demo copy from Easyview Reader.\nCopy button is working correctly!';
     if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(testText).then(() => {
-            showCopyNotification('✅ Test copy successful! Check clipboard.');
+            showCopySuccess(copyButton);
         });
     } else {
-        fallbackCopyTextToClipboard(testText);
+        fallbackCopyTextToClipboard(testText, copyButton);
     }
 }
 
@@ -76,11 +76,12 @@ function copyAllText() {
         
         let textContent = '';
         const iframe = document.getElementById('reader');
+        const copyButton = document.querySelector('[data-cmd="copy"]');
         
         // Try simple test first if no content
         if (window.copyTestMode || !iframe || !iframe.contentDocument) {
             console.log('No iframe content, running test copy...');
-            return testCopy();
+            return testCopy(copyButton);
         }
         
         if (iframe) {
@@ -120,23 +121,22 @@ function copyAllText() {
             // Copy to clipboard using modern API
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(textContent).then(() => {
-                    showCopyNotification('Text copied successfully! (' + textContent.length + ' chars)');
+                    console.log('Text copied successfully! (' + textContent.length + ' chars)');
+                    showCopySuccess(copyButton);
                 }).catch(err => {
                     console.error('Failed to copy text: ', err);
-                    fallbackCopyTextToClipboard(textContent);
+                    fallbackCopyTextToClipboard(textContent, copyButton);
                 });
             } else {
                 // Fallback for older browsers
-                fallbackCopyTextToClipboard(textContent);
+                fallbackCopyTextToClipboard(textContent, copyButton);
             }
         } else {
             console.log('No text content found to copy');
-            showCopyNotification('No text content found to copy');
         }
         
     } catch (error) {
         console.error('Copy failed:', error);
-        showCopyNotification('Copy failed: ' + error.message);
     }
 }
 
@@ -144,6 +144,8 @@ function copyUsingSelection() {
     try {
         // Try to select all content and copy
         const iframe = document.getElementById('reader');
+        const copyButton = document.querySelector('[data-cmd="copy"]');
+        
         if (iframe && iframe.contentDocument) {
             const iframeDoc = iframe.contentDocument;
             const selection = iframeDoc.getSelection();
@@ -157,23 +159,23 @@ function copyUsingSelection() {
             const success = iframeDoc.execCommand('copy');
             
             if (success) {
-                showCopyNotification('Text copied successfully using selection method!');
+                console.log('Text copied successfully using selection method!');
+                showCopySuccess(copyButton);
             } else {
-                showCopyNotification('Selection copy method failed');
+                console.log('Selection copy method failed');
             }
             
             // Clear selection
             selection.removeAllRanges();
         } else {
-            showCopyNotification('Cannot access iframe for selection copy');
+            console.log('Cannot access iframe for selection copy');
         }
     } catch (error) {
         console.error('Selection copy failed:', error);
-        showCopyNotification('Selection copy failed: ' + error.message);
     }
 }
 
-function fallbackCopyTextToClipboard(text) {
+function fallbackCopyTextToClipboard(text, copyButton) {
     const textArea = document.createElement("textarea");
     textArea.value = text;
     textArea.style.top = "0";
@@ -188,46 +190,27 @@ function fallbackCopyTextToClipboard(text) {
     try {
         const successful = document.execCommand('copy');
         if (successful) {
-            showCopyNotification('Text copied successfully!');
+            console.log('Text copied successfully!');
+            showCopySuccess(copyButton);
         } else {
-            showCopyNotification('Copy failed. Please try selecting text manually.');
+            console.log('Copy failed. Please try selecting text manually.');
         }
     } catch (err) {
         console.error('Fallback: Could not copy text: ', err);
-        showCopyNotification('Copy failed. Please try selecting text manually.');
+        console.log('Copy failed. Please try selecting text manually.');
     }
 
     document.body.removeChild(textArea);
 }
 
-function showCopyNotification(message) {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.textContent = message;
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #4CAF50;
-        color: white;
-        padding: 12px 24px;
-        border-radius: 4px;
-        font-size: 14px;
-        z-index: 10000;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        transition: opacity 0.3s ease;
-    `;
+function showCopySuccess(copyButton) {
+    if (!copyButton) return;
     
-    document.body.appendChild(notification);
+    // Add copy-done class to show checkmark icon
+    copyButton.classList.add('copy-done');
     
-    // Remove notification after 3 seconds
+    // Remove after 1.5 seconds to revert to normal copy icon
     setTimeout(() => {
-        notification.style.opacity = '0';
-        setTimeout(() => {
-            if (notification.parentNode) {
-                document.body.removeChild(notification);
-            }
-        }, 300);
-    }, 3000);
+        copyButton.classList.remove('copy-done');
+    }, 1500);
 }
