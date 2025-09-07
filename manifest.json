@@ -49,6 +49,18 @@
   "host_permissions": [
     "<all_urls>"
   ],
-  "version": "1.0.2",
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "html/*",
+        "css/*", 
+        "js/*",
+        "images/*",
+        "_locales/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "version": "1.0.3",
   "update_url": "https://edge.microsoft.com/extensionwebstorebase/v1/crx"
 }
