@@ -3,10 +3,11 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing copy functionality...');
     
     // Function to handle copy click
-    function handleCopyClick() {
+    function handleCopyClick(event) {
         console.log('Copy button clicked!');
+        const clickedButton = event.currentTarget;
         try {
-            copyAllText();
+            copyAllText(clickedButton);
         } catch (error) {
             console.error('Copy error:', error);
             showCopyNotification('Copy failed: ' + error.message);
@@ -18,14 +19,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const maxRetries = 20;
     
     function attachCopyListener() {
-        const copyButton = document.querySelector('[data-cmd="copy"]');
-        if (copyButton && !copyButton.hasAttribute('copy-listener-attached')) {
-            copyButton.setAttribute('copy-listener-attached', 'true');
-            copyButton.addEventListener('click', handleCopyClick);
-            console.log('Copy event listener attached successfully');
-            return true;
-        }
-        return false;
+        const copyButtons = document.querySelectorAll('[data-cmd="copy"]');
+        let attached = false;
+
+        copyButtons.forEach(copyButton => {
+            if (copyButton && !copyButton.hasAttribute('copy-listener-attached')) {
+                copyButton.setAttribute('copy-listener-attached', 'true');
+                copyButton.addEventListener('click', handleCopyClick);
+                console.log('Copy event listener attached to button:', copyButton.classList.toString());
+                attached = true;
+            }
+        });
+
+        return attached;
     }
     
     function tryAttach() {
@@ -70,14 +76,14 @@ function testCopy(copyButton) {
     }
 }
 
-function copyAllText() {
+function copyAllText(clickedButton) {
     try {
         console.log('Starting copy process...');
-        
+
         let textContent = '';
         const iframe = document.getElementById('reader');
-        const copyButton = document.querySelector('[data-cmd="copy"]');
-        
+        const copyButton = clickedButton || document.querySelector('[data-cmd="copy"]');
+
         // Try simple test first if no content
         if (window.copyTestMode || !iframe || !iframe.contentDocument) {
             console.log('No iframe content, running test copy...');
