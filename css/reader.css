@@ -13,3 +13,91 @@ body.hide-scrollbar {scrollbar-width: none !important; scrollbar-color: unset !i
 body.hide-scrollbar ::-webkit-scrollbar {display: none !important;}
 body.hide-scrollbar iframe {scrollbar-width: none !important;}
 body.hide-scrollbar iframe::-webkit-scrollbar {display: none !important;}
+
+/* Line Highlighting Styles */
+.line-highlight {
+    background-color: rgba(255, 255, 0, 0.4) !important;
+    transition: background-color 0.15s ease-in-out !important;
+    display: block !important;
+    width: 100% !important;
+    margin-left: -20px !important;
+    margin-right: -20px !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    box-sizing: border-box !important;
+    border-radius: 2px !important;
+}
+
+.line-highlight-wrapper {
+    position: relative !important;
+    display: block !important;
+    line-height: inherit !important;
+}
+
+/* Line highlighting color variations */
+.line-highlight-yellow {
+    background-color: rgba(255, 255, 0, 0.2) !important;
+}
+
+.line-highlight-blue {
+    background-color: rgba(66, 165, 245, 0.2) !important;
+}
+
+.line-highlight-green {
+    background-color: rgba(76, 175, 80, 0.2) !important;
+}
+
+.line-highlight-gray {
+    background-color: rgba(158, 158, 158, 0.2) !important;
+}
+
+/* Intensity variations */
+.line-highlight-light {
+    background-color: rgba(255, 255, 0, 0.25) !important;
+}
+
+.line-highlight-medium {
+    background-color: rgba(255, 255, 0, 0.4) !important;
+}
+
+.line-highlight-strong {
+    background-color: rgba(255, 255, 0, 0.55) !important;
+}
+
+/* Line Highlighting Settings UI */
+.line-highlight-settings {
+    width: 100%;
+    padding: 0 18px;
+    margin-bottom: 20px;
+}
+
+.highlight-colors {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.highlight-color-item {
+    width: 32px;
+    height: 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.highlight-color-item:hover {
+    border-color: #cfd1dc;
+    transform: scale(1.05);
+}
+
+.highlight-color-item.active {
+    border-color: #ffd25d;
+    transform: scale(1.1);
+}
+
+/* Hide highlight settings when toggle is off */
+.line-highlight-settings.hidden {
+    display: none;
+}

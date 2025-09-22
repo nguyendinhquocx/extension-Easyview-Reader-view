@@ -45,7 +45,9 @@
       "Bash(npm i:*)",
       "Bash(where:*)",
       "WebFetch(domain:ksk.hmsg.fun)",
-      "WebFetch(domain:localhost)"
+      "WebFetch(domain:localhost)",
+      "Bash(git rm:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": [],
