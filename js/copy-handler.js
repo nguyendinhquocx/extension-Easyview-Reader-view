@@ -1,68 +1,112 @@
-// Copy functionality with proper event listener
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing copy functionality...');
-    
-    // Function to handle copy click
-    function handleCopyClick(event) {
-        console.log('Copy button clicked!');
-        const clickedButton = event.currentTarget;
-        try {
-            copyAllText(clickedButton);
-        } catch (error) {
-            console.error('Copy error:', error);
-            showCopyNotification('Copy failed: ' + error.message);
-        }
+// Copy functionality with proper event listener - Improved
+class CopyHandler {
+    constructor() {
+        this.retryCount = 0;
+        this.maxRetries = 10; // Reduced from 20
+        this.retryDelay = 100; // Reduced from 250ms
+        this.isInitialized = false;
+        this.init();
     }
-    
-    // Attach event listener with multiple retry attempts
-    let retryCount = 0;
-    const maxRetries = 20;
-    
-    function attachCopyListener() {
+
+    init() {
+        if (this.isInitialized) return;
+
+        console.log('CopyHandler: Initializing...');
+
+        // Use shorter delay and fewer retries to avoid conflicts
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.startAttachment());
+        } else {
+            // Start immediately if DOM is ready
+            setTimeout(() => this.startAttachment(), 50);
+        }
+
+        this.setupMutationObserver();
+        this.isInitialized = true;
+    }
+
+    startAttachment() {
+        if (this.attachCopyListener()) {
+            console.log('CopyHandler: Successfully attached on first try');
+            return;
+        }
+        this.tryAttachWithRetry();
+    }
+
+    attachCopyListener() {
         const copyButtons = document.querySelectorAll('[data-cmd="copy"]');
         let attached = false;
 
         copyButtons.forEach(copyButton => {
             if (copyButton && !copyButton.hasAttribute('copy-listener-attached')) {
                 copyButton.setAttribute('copy-listener-attached', 'true');
-                copyButton.addEventListener('click', handleCopyClick);
-                console.log('Copy event listener attached to button:', copyButton.classList.toString());
+                copyButton.addEventListener('click', this.handleCopyClick.bind(this));
+                console.log('CopyHandler: Event listener attached to button');
                 attached = true;
             }
         });
 
         return attached;
     }
-    
-    function tryAttach() {
-        if (attachCopyListener()) {
-            return; // Success
+
+    tryAttachWithRetry() {
+        if (this.attachCopyListener()) {
+            console.log('CopyHandler: Successfully attached after', this.retryCount, 'retries');
+            return;
         }
-        
-        retryCount++;
-        if (retryCount < maxRetries) {
-            console.log('Retrying to attach copy listener... attempt', retryCount);
-            setTimeout(tryAttach, 250);
+
+        this.retryCount++;
+        if (this.retryCount < this.maxRetries) {
+            setTimeout(() => this.tryAttachWithRetry(), this.retryDelay);
         } else {
-            console.error('Failed to attach copy listener after', maxRetries, 'attempts');
+            console.warn('CopyHandler: Could not attach after', this.maxRetries, 'attempts - will try via mutation observer');
         }
     }
-    
-    // Start trying immediately
-    tryAttach();
-    
-    // Also observe DOM changes
-    if (window.MutationObserver) {
-        const observer = new MutationObserver(function(mutations) {
-            attachCopyListener();
+
+    setupMutationObserver() {
+        if (!window.MutationObserver) return;
+
+        const observer = new MutationObserver(() => {
+            // Throttle the attachment attempts
+            if (!this.attachmentTimeout) {
+                this.attachmentTimeout = setTimeout(() => {
+                    this.attachCopyListener();
+                    this.attachmentTimeout = null;
+                }, 100);
+            }
         });
-        
+
         observer.observe(document.body, {
             childList: true,
             subtree: true
         });
     }
+
+    handleCopyClick(event) {
+        console.log('CopyHandler: Copy button clicked');
+        const clickedButton = event.currentTarget;
+        try {
+            copyAllText(clickedButton);
+        } catch (error) {
+            console.error('CopyHandler: Copy error:', error);
+            if (window.showCopyNotification) {
+                showCopyNotification('Copy failed: ' + error.message);
+            }
+        }
+    }
+}
+
+// Initialize copy handler
+document.addEventListener('DOMContentLoaded', function() {
+    if (!window.copyHandler) {
+        window.copyHandler = new CopyHandler();
+    }
 });
+
+// Also initialize if DOM is already loaded
+if (document.readyState !== 'loading' && !window.copyHandler) {
+    window.copyHandler = new CopyHandler();
+}
 
 // Simple test function first
 function testCopy(copyButton) {

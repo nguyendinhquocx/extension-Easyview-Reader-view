@@ -659,10 +659,23 @@
                     title: "Switch to Reader View",
                     contexts: [ "page" ],
                     documentUrlPatterns: [ "*://*/*" ]
-                }), chrome.contextMenus.onClicked.addListener((({menuItemId: D}, h) => {
+                });
+
+                chrome.contextMenus.create({
+                    id: "translate-reader-view",
+                    title: "Translate Reader View to Vietnamese",
+                    contexts: [ "page" ],
+                    documentUrlPatterns: [ "*://*/*" ]
+                });
+
+                chrome.contextMenus.onClicked.addListener((({menuItemId: D}, h) => {
                     switch (D) {
                       case "switch-to-reader-view":
                         if (h) this.pageEvent(h);
+                        break;
+                      case "translate-reader-view":
+                        if (h) this.translatePage(h);
+                        break;
                     }
                 }));
             }
@@ -703,6 +716,43 @@
                     message: D
                 });
             }
+            translatePage(D) {
+                if (!D.id) return;
+
+                try {
+                    // Method 1: Inject translation script
+                    chrome.scripting.executeScript({
+                        target: { tabId: D.id },
+                        func: () => {
+                            // Set document language to trigger Chrome translate
+                            document.documentElement.setAttribute('translate', 'yes');
+                            document.documentElement.lang = 'en';
+                            document.body.setAttribute('translate', 'yes');
+
+                            // Create meta tag for better detection
+                            let meta = document.querySelector('meta[http-equiv="content-language"]');
+                            if (!meta) {
+                                meta = document.createElement('meta');
+                                meta.setAttribute('http-equiv', 'content-language');
+                                meta.setAttribute('content', 'en');
+                                document.head.appendChild(meta);
+                            }
+
+                            // Try to trigger translation banner
+                            const event = new Event('DOMContentLoaded', { bubbles: true, cancelable: true });
+                            document.dispatchEvent(event);
+                        }
+                    }, () => {
+                        if (chrome.runtime.lastError) {
+                            this.sendNotification("Translation setup failed. Try right-clicking and selecting 'Translate to Vietnamese'");
+                        } else {
+                            this.sendNotification("🌐 Translation ready! Chrome should show translate banner or right-click → 'Translate to Vietnamese'");
+                        }
+                    });
+                } catch (error) {
+                    this.sendNotification("Translation failed. Please try right-clicking and selecting 'Translate to Vietnamese'");
+                }
+            }
             async openReader(D, h) {
                 const z = h.url, j = h.id;
                 if (!D || !z || !j) return this.sendNotification("This page is not supported");
@@ -740,6 +790,10 @@
                         chrome.tabs.create({
                             url: D.data
                         });
+                        break;
+
+                      case "TRANSLATE_PAGE":
+                        if (h.tab) this.translatePage(h.tab);
                         break;
                     }
                 }));
