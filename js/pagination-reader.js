@@ -39,7 +39,12 @@ class PaginationReader {
             keydown: null,
             click: null,
             resize: null,
+            wheel: null,
         };
+
+        // Wheel scroll tracking
+        this.lastWheelTime = 0;
+        this.wheelThreshold = 300; // ms between wheel navigations
 
         this.initialized = false;
     }
@@ -352,11 +357,19 @@ class PaginationReader {
         this.boundHandlers.click = this.handleClick.bind(this);
         this.iframe.addEventListener('click', this.boundHandlers.click);
 
+        // Wheel/scroll navigation (horizontal)
+        this.boundHandlers.wheel = this.handleWheel.bind(this);
+        document.addEventListener('wheel', this.boundHandlers.wheel, { passive: false });
+        window.addEventListener('wheel', this.boundHandlers.wheel, { passive: false });
+        if (this.iframeDoc) {
+            this.iframeDoc.addEventListener('wheel', this.boundHandlers.wheel, { passive: false });
+        }
+
         // Resize handling
         this.boundHandlers.resize = this.handleResize.bind(this);
         window.addEventListener('resize', this.boundHandlers.resize);
 
-        console.log('Pagination navigation setup complete with capture phase');
+        console.log('Pagination navigation setup complete with capture phase + wheel support');
     }
 
     /**
@@ -372,6 +385,13 @@ class PaginationReader {
         }
         if (this.boundHandlers.click) {
             this.iframe.removeEventListener('click', this.boundHandlers.click);
+        }
+        if (this.boundHandlers.wheel) {
+            document.removeEventListener('wheel', this.boundHandlers.wheel, { passive: false });
+            window.removeEventListener('wheel', this.boundHandlers.wheel, { passive: false });
+            if (this.iframeDoc) {
+                this.iframeDoc.removeEventListener('wheel', this.boundHandlers.wheel, { passive: false });
+            }
         }
         if (this.boundHandlers.resize) {
             window.removeEventListener('resize', this.boundHandlers.resize);
@@ -462,6 +482,48 @@ class PaginationReader {
             this.nextPage();
         }
         // Center zone - do nothing (allow text selection)
+    }
+
+    /**
+     * Handle wheel/scroll navigation (horizontal scroll)
+     */
+    handleWheel(e) {
+        if (this.mode !== 'pagination') return;
+
+        const now = Date.now();
+
+        // Debounce - prevent too sensitive scrolling
+        if (now - this.lastWheelTime < this.wheelThreshold) {
+            return;
+        }
+
+        // Detect horizontal scroll (deltaX) or shift+vertical scroll
+        const deltaX = e.deltaX;
+        const deltaY = e.deltaY;
+
+        // Check if horizontal scroll or shift+scroll
+        const isHorizontalScroll = Math.abs(deltaX) > Math.abs(deltaY) || e.shiftKey;
+
+        if (isHorizontalScroll) {
+            // Prevent default scroll behavior
+            e.preventDefault();
+            e.stopPropagation();
+
+            const scrollAmount = e.shiftKey ? deltaY : deltaX;
+
+            // Navigate based on scroll direction
+            if (scrollAmount > 0) {
+                // Scroll right → next page
+                this.nextPage();
+                this.lastWheelTime = now;
+                console.log('[Pagination] Wheel: next page');
+            } else if (scrollAmount < 0) {
+                // Scroll left → previous page
+                this.prevPage();
+                this.lastWheelTime = now;
+                console.log('[Pagination] Wheel: previous page');
+            }
+        }
     }
 
     /**
