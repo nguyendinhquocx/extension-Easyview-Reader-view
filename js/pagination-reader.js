@@ -30,6 +30,9 @@ class PaginationReader {
         this.contentWidth = 0;
         this.lastResizeTime = 0;
 
+        // URL tracking
+        this.currentUrl = null;
+
         // Event handlers (bound for cleanup)
         this.boundHandlers = {
             keydown: null,
@@ -56,8 +59,17 @@ class PaginationReader {
                 return false;
             }
 
+            // Get current URL
+            this.currentUrl = this.getCurrentUrl();
+
             // Load saved mode preference
             await this.loadPreferences();
+
+            // Load saved page position for this URL
+            await this.loadPagePosition();
+
+            // Cleanup old position data (run occasionally)
+            this.scheduleCleanup();
 
             // Apply initial mode
             if (this.mode === 'pagination') {
@@ -95,6 +107,9 @@ class PaginationReader {
         // Update UI
         this.updateModeUI();
 
+        // Sync with settings panel
+        this.syncSettingsPanel();
+
         // Save preference
         this.savePreferences();
 
@@ -117,6 +132,9 @@ class PaginationReader {
 
         // Update UI
         this.updateModeUI();
+
+        // Sync with settings panel
+        this.syncSettingsPanel();
 
         // Save preference
         this.savePreferences();
@@ -455,18 +473,170 @@ class PaginationReader {
     }
 
     /**
+     * Sync with settings panel
+     */
+    syncSettingsPanel() {
+        if (window.paginationIntegration && window.paginationIntegration.updateSettingsPanel) {
+            window.paginationIntegration.updateSettingsPanel(this.mode);
+        }
+    }
+
+    /**
+     * Get current URL from iframe
+     */
+    getCurrentUrl() {
+        try {
+            if (this.iframeDoc) {
+                const domain = this.iframeDoc.getElementById('reader-domain');
+                if (domain && domain.href) {
+                    return domain.href;
+                }
+            }
+
+            // Fallback: try to get from parent window
+            const params = new URLSearchParams(window.location.search);
+            const tabId = params.get('id');
+            if (tabId) {
+                // URL will be available after article loads
+                return window.location.href;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('Error getting current URL:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Create hash from URL for storage key
+     */
+    getUrlHash(url) {
+        if (!url) return null;
+
+        // Simple hash function
+        let hash = 0;
+        for (let i = 0; i < url.length; i++) {
+            const char = url.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return 'pagePos_' + Math.abs(hash).toString(36);
+    }
+
+    /**
+     * Load page position from storage
+     */
+    async loadPagePosition() {
+        if (!this.currentUrl) return;
+
+        try {
+            const key = this.getUrlHash(this.currentUrl);
+            if (!key) return;
+
+            const result = await chrome.storage.local.get([key]);
+            const positionData = result[key];
+
+            if (positionData && positionData.page && positionData.timestamp) {
+                // Check if data is not too old (30 days)
+                const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+                if (positionData.timestamp > thirtyDaysAgo) {
+                    // Restore page position after pagination is enabled
+                    if (this.mode === 'pagination' && positionData.page > 0) {
+                        setTimeout(() => {
+                            this.goToPage(positionData.page, false);
+                            console.log(`Restored position: page ${positionData.page}`);
+                        }, 300);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error loading page position:', error);
+        }
+    }
+
+    /**
+     * Save current page position
+     */
+    async savePagePosition() {
+        if (!this.currentUrl || this.mode !== 'pagination') return;
+
+        try {
+            const key = this.getUrlHash(this.currentUrl);
+            if (!key) return;
+
+            const positionData = {
+                page: this.currentPage,
+                totalPages: this.totalPages,
+                timestamp: Date.now(),
+                url: this.currentUrl
+            };
+
+            await chrome.storage.local.set({
+                [key]: positionData
+            });
+        } catch (error) {
+            console.error('Error saving page position:', error);
+        }
+    }
+
+    /**
+     * Schedule cleanup of old position data
+     */
+    scheduleCleanup() {
+        // Run cleanup with 10% probability (to avoid doing it every time)
+        if (Math.random() < 0.1) {
+            setTimeout(() => {
+                this.cleanupOldPositions();
+            }, 2000); // Delay 2s to not block init
+        }
+    }
+
+    /**
+     * Cleanup old position data (older than 30 days)
+     */
+    async cleanupOldPositions() {
+        try {
+            const allData = await chrome.storage.local.get(null);
+            const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+            const keysToRemove = [];
+
+            for (const key in allData) {
+                // Check if it's a position key
+                if (key.startsWith('pagePos_')) {
+                    const data = allData[key];
+
+                    // Check timestamp
+                    if (data && data.timestamp) {
+                        if (data.timestamp < thirtyDaysAgo) {
+                            keysToRemove.push(key);
+                        }
+                    } else {
+                        // Invalid data, remove it
+                        keysToRemove.push(key);
+                    }
+                }
+            }
+
+            if (keysToRemove.length > 0) {
+                await chrome.storage.local.remove(keysToRemove);
+                console.log(`Cleaned up ${keysToRemove.length} old position entries`);
+            }
+        } catch (error) {
+            console.error('Error cleaning up old positions:', error);
+        }
+    }
+
+    /**
      * Load preferences from storage
      */
     async loadPreferences() {
         try {
-            const result = await chrome.storage.local.get(['readingMode', 'pagePosition']);
+            const result = await chrome.storage.local.get(['readingMode']);
 
             if (result.readingMode) {
                 this.mode = result.readingMode;
             }
-
-            // Load page position for current URL (will implement later)
-
         } catch (error) {
             console.error('Load preferences error:', error);
         }

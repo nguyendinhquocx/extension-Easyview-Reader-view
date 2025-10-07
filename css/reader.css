@@ -134,6 +134,73 @@ body.hide-scrollbar iframe::-webkit-scrollbar {display: none !important;}
     transform: scale(1.1);
 }
 
+/* Reading Mode Settings */
+.reading-mode-settings {
+    width: 100%;
+    padding: 20px 18px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.reading-mode-options {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.reading-mode-option {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 8px;
+    border: 2px solid #cfd1dc;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.reading-mode-option:hover {
+    border-color: #ffd25d;
+    background: #fffef8;
+}
+
+.reading-mode-option.active {
+    border-color: #ffd25d;
+    background: #fffef8;
+}
+
+.reading-mode-option span {
+    font-size: 12px;
+    font-weight: 500;
+    color: #3a3895;
+}
+
+.mode-icon {
+    width: 32px;
+    height: 32px;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.reading-mode-option.active .mode-icon {
+    opacity: 1;
+}
+
+.pagination-icon {
+    background-image: url(../icons/icon48.png);
+}
+
+.scroll-icon {
+    background-image: url(../images/scrollbar.png);
+}
+}
+
 /* Hide highlight settings when toggle is off */
 .line-highlight-settings.hidden {
     display: none;

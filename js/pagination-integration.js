@@ -24,6 +24,9 @@
 
         // Setup toggle button listener
         setupToggleButton();
+
+        // Setup settings panel
+        setupSettingsPanel();
     }
 
     function waitForIframe() {
@@ -98,7 +101,57 @@
         console.log('Pagination toggle button setup complete');
     }
 
-    // Expose for debugging
+    function setupSettingsPanel() {
+        const modeOptions = document.querySelectorAll('.reading-mode-option');
+
+        if (modeOptions.length === 0) {
+            console.warn('Reading mode options not found in settings');
+            return;
+        }
+
+        modeOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                const selectedMode = option.dataset.mode;
+
+                // Update active state
+                modeOptions.forEach(opt => opt.classList.remove('active'));
+                option.classList.add('active');
+
+                // Toggle pagination reader
+                if (paginationReader) {
+                    if (selectedMode === 'pagination' && paginationReader.mode !== 'pagination') {
+                        paginationReader.enablePagination();
+                    } else if (selectedMode === 'scroll' && paginationReader.mode !== 'scroll') {
+                        paginationReader.enableScroll();
+                    }
+                } else {
+                    console.warn('PaginationReader not initialized yet');
+                }
+            });
+        });
+
+        // Sync initial state with pagination reader mode
+        setTimeout(() => {
+            if (paginationReader) {
+                updateSettingsPanelState(paginationReader.mode);
+            }
+        }, 500);
+
+        console.log('Settings panel setup complete');
+    }
+
+    function updateSettingsPanelState(mode) {
+        const modeOptions = document.querySelectorAll('.reading-mode-option');
+        modeOptions.forEach(option => {
+            if (option.dataset.mode === mode) {
+                option.classList.add('active');
+            } else {
+                option.classList.remove('active');
+            }
+        });
+    }
+
+    // Expose for debugging and internal use
     window.paginationDebug = {
         getReader: () => paginationReader,
         reinit: () => {
@@ -106,7 +159,13 @@
             if (iframe) {
                 initializePagination(iframe);
             }
-        }
+        },
+        updateSettingsPanel: updateSettingsPanelState
+    };
+
+    // Export for use by pagination-reader
+    window.paginationIntegration = {
+        updateSettingsPanel: updateSettingsPanelState
     };
 
 })();
