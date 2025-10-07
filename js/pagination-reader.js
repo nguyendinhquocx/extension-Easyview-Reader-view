@@ -17,7 +17,8 @@ class PaginationReader {
 
         // Configuration
         this.config = {
-            pageGap: 60, // Gap between pages in pixels (center spine)
+            maxWidth: 850, // Max width for pagination content (same as default page width)
+            pageGap: 40, // Gap between pages in pixels
             animationDuration: 400, // ms
             animationEasing: 'cubic-bezier(0.4, 0, 0.2, 1)',
             clickZonePercent: 30, // 30% edges for navigation
@@ -107,9 +108,6 @@ class PaginationReader {
         // Update UI
         this.updateModeUI();
 
-        // Sync with settings panel
-        this.syncSettingsPanel();
-
         // Save preference
         this.savePreferences();
 
@@ -133,9 +131,6 @@ class PaginationReader {
         // Update UI
         this.updateModeUI();
 
-        // Sync with settings panel
-        this.syncSettingsPanel();
-
         // Save preference
         this.savePreferences();
 
@@ -157,19 +152,23 @@ class PaginationReader {
         // Add class to main body to hide floating buttons
         document.body.classList.add('pagination-active');
 
-        // Calculate page width
-        this.pageWidth = window.innerWidth;
+        // Use max-width to limit content, margin auto to center (like scroll mode)
+        const columnWidth = this.config.maxWidth;
 
-        // 2-page spread: each "page" is half the viewport
-        const singlePageWidth = Math.floor(this.pageWidth / 2);
-
-        // Apply column styles for 2-page spread
-        // Keep original margin/padding for centered layout like scroll mode
+        // Apply column styles - KEEP scroll mode's margin: auto for centering
         const style = `
             body.pagination-mode {
-                column-width: ${singlePageWidth}px !important;
+                /* Layout - use max-width + margin auto like scroll mode */
+                width: ${columnWidth}px !important;
+                max-width: ${columnWidth}px !important;
+                margin: 30px auto 0 auto !important;
+
+                /* Column properties */
+                column-width: ${columnWidth}px !important;
                 column-gap: ${this.config.pageGap}px !important;
                 column-fill: auto !important;
+
+                /* Pagination behavior */
                 overflow-x: hidden !important;
                 overflow-y: hidden !important;
                 height: calc(100vh - 100px) !important;
@@ -252,15 +251,11 @@ class PaginationReader {
             // Get content dimensions
             const contentWidth = this.iframeBody.scrollWidth;
 
-            // Each "page" is half viewport + gap
-            const singlePageWidth = Math.floor(this.pageWidth / 2) + this.config.pageGap;
+            // Single page mode: each page = maxWidth + gap
+            const columnWidth = this.config.maxWidth + this.config.pageGap;
 
-            // Total number of single pages (columns)
-            const totalSinglePages = Math.ceil(contentWidth / singlePageWidth);
-
-            // Total spreads (pairs of pages) - rounded up
-            // Each spread shows 2 pages, so total spreads = ceiling(pages / 2)
-            this.totalPages = Math.ceil(totalSinglePages / 2);
+            // Calculate total pages
+            this.totalPages = Math.ceil(contentWidth / columnWidth);
             this.contentWidth = contentWidth;
 
             // Ensure current page is valid
@@ -271,10 +266,10 @@ class PaginationReader {
                 this.currentPage = 1;
             }
 
-            // Update page indicator
+            // Update page indicator (currently hidden)
             this.updatePageIndicator();
 
-            console.log(`Pages calculated: ${this.totalPages} spreads (${totalSinglePages} single pages), width: ${contentWidth}px`);
+            console.log(`[Pagination] Pages calculated: ${this.totalPages} pages, width: ${contentWidth}px, maxWidth: ${this.config.maxWidth}px`);
 
         } catch (error) {
             console.error('Calculate pages error:', error);
@@ -289,17 +284,16 @@ class PaginationReader {
     goToPage(pageNumber, animate = true) {
         if (!this.iframeBody || this.mode !== 'pagination') return;
 
-        // Clamp page number (page = spread number)
+        // Clamp page number
         pageNumber = Math.max(1, Math.min(pageNumber, this.totalPages));
 
         if (pageNumber === this.currentPage) return;
 
         this.currentPage = pageNumber;
 
-        // Calculate offset for 2-page spread
-        // Each spread shows 2 columns (pages), so offset by (spread - 1) * 2 * singlePageWidth
-        const singlePageWidth = Math.floor(this.pageWidth / 2) + this.config.pageGap;
-        const offset = -((pageNumber - 1) * 2 * singlePageWidth);
+        // Calculate offset (single page mode)
+        const columnWidth = this.config.maxWidth + this.config.pageGap;
+        const offset = -((pageNumber - 1) * columnWidth);
 
         // Apply transform
         if (animate) {
@@ -485,9 +479,7 @@ class PaginationReader {
             this.lastResizeTime = now;
 
             if (this.mode === 'pagination') {
-                // Recalculate layout
-                this.pageWidth = window.innerWidth;
-                this.applyPaginationLayout();
+                // Recalculate layout (maxWidth is fixed, but recalc pages in case content changed)
                 this.calculatePages();
                 this.goToPage(this.currentPage, false);
             }
@@ -506,29 +498,15 @@ class PaginationReader {
     }
 
     /**
-     * Update page indicator UI
+     * Update page indicator UI (currently hidden by CSS)
      */
     updatePageIndicator() {
         const indicator = document.getElementById('page-indicator');
         if (!indicator) return;
 
+        // Page indicator is permanently hidden, but keep code for debugging
         if (this.mode === 'pagination' && this.totalPages > 0) {
-            // Show 2-page spread format: "1-2 / 20"
-            const leftPage = (this.currentPage - 1) * 2 + 1;
-            const rightPage = Math.min(this.currentPage * 2, this.totalPages * 2);
-
-            indicator.textContent = `${leftPage}-${rightPage} / ${this.totalPages * 2}`;
-            indicator.classList.remove('hidden');
-
-            // Auto-hide after 2 seconds
-            clearTimeout(this.indicatorTimeout);
-            indicator.classList.add('visible');
-
-            this.indicatorTimeout = setTimeout(() => {
-                indicator.classList.remove('visible');
-            }, 2000);
-        } else {
-            indicator.classList.add('hidden');
+            indicator.textContent = `${this.currentPage} / ${this.totalPages}`;
         }
     }
 
@@ -546,16 +524,37 @@ class PaginationReader {
             toggleBtn.classList.remove('pagination-active');
             toggleBtn.title = 'Switch to Book Mode';
         }
+
+        // Disable page width slider in pagination mode
+        this.updatePageWidthSlider();
     }
 
     /**
-     * Sync with settings panel
+     * Update page width slider state
      */
-    syncSettingsPanel() {
-        if (window.paginationIntegration && window.paginationIntegration.updateSettingsPanel) {
-            window.paginationIntegration.updateSettingsPanel(this.mode);
+    updatePageWidthSlider() {
+        // Find parent setting-item by checking for .page-width child
+        const allSettingItems = document.querySelectorAll('.setting-item');
+        let pageWidthSetting = null;
+        allSettingItems.forEach(item => {
+            if (item.querySelector('.page-width')) {
+                pageWidthSetting = item;
+            }
+        });
+
+        if (pageWidthSetting) {
+            if (this.mode === 'pagination') {
+                pageWidthSetting.style.opacity = '0.5';
+                pageWidthSetting.style.pointerEvents = 'none';
+                pageWidthSetting.title = 'Page width is locked in pagination mode';
+            } else {
+                pageWidthSetting.style.opacity = '1';
+                pageWidthSetting.style.pointerEvents = 'auto';
+                pageWidthSetting.title = '';
+            }
         }
     }
+
 
     /**
      * Get current URL from iframe

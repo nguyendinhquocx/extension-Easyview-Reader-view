@@ -110,30 +110,9 @@ body.hide-scrollbar iframe::-webkit-scrollbar {display: none !important;}
 }
 
 /* Page Indicator */
+/* Page indicator - PERMANENTLY HIDDEN (causes distraction) */
 .page-indicator {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.75);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 13px;
-    font-weight: 500;
-    z-index: 1000;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.page-indicator.visible {
-    opacity: 1;
-}
-
-.page-indicator.hidden {
-    display: none;
+    display: none !important;
 }
 
 .highlight-color-item.active {
