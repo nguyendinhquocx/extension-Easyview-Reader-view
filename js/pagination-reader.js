@@ -42,9 +42,11 @@ class PaginationReader {
             wheel: null,
         };
 
-        // Wheel scroll tracking
-        this.lastWheelTime = 0;
-        this.wheelThreshold = 300; // ms between wheel navigations
+        // Wheel scroll tracking with accumulation
+        this.scrollAccumulator = 0;
+        this.scrollThreshold = 100; // Accumulated scroll amount needed to flip page
+        this.scrollResetTimeout = null;
+        this.scrollResetDelay = 200; // ms to reset accumulator after last scroll
 
         this.initialized = false;
     }
@@ -486,16 +488,10 @@ class PaginationReader {
 
     /**
      * Handle wheel/scroll navigation (horizontal scroll)
+     * Uses scroll accumulation for smooth, natural feel
      */
     handleWheel(e) {
         if (this.mode !== 'pagination') return;
-
-        const now = Date.now();
-
-        // Debounce - prevent too sensitive scrolling
-        if (now - this.lastWheelTime < this.wheelThreshold) {
-            return;
-        }
 
         // Detect horizontal scroll (deltaX) or shift+vertical scroll
         const deltaX = e.deltaX;
@@ -511,17 +507,33 @@ class PaginationReader {
 
             const scrollAmount = e.shiftKey ? deltaY : deltaX;
 
-            // Navigate based on scroll direction
-            if (scrollAmount > 0) {
-                // Scroll right → next page
-                this.nextPage();
-                this.lastWheelTime = now;
-                console.log('[Pagination] Wheel: next page');
-            } else if (scrollAmount < 0) {
-                // Scroll left → previous page
-                this.prevPage();
-                this.lastWheelTime = now;
-                console.log('[Pagination] Wheel: previous page');
+            // Accumulate scroll amount
+            this.scrollAccumulator += scrollAmount;
+
+            // Clear existing reset timeout
+            if (this.scrollResetTimeout) {
+                clearTimeout(this.scrollResetTimeout);
+            }
+
+            // Check if accumulated scroll exceeds threshold
+            if (Math.abs(this.scrollAccumulator) >= this.scrollThreshold) {
+                if (this.scrollAccumulator > 0) {
+                    // Scroll right → next page
+                    this.nextPage();
+                    console.log('[Pagination] Wheel accumulated: next page');
+                } else {
+                    // Scroll left → previous page
+                    this.prevPage();
+                    console.log('[Pagination] Wheel accumulated: previous page');
+                }
+
+                // Reset accumulator after navigation
+                this.scrollAccumulator = 0;
+            } else {
+                // Reset accumulator after delay if no more scrolling
+                this.scrollResetTimeout = setTimeout(() => {
+                    this.scrollAccumulator = 0;
+                }, this.scrollResetDelay);
             }
         }
     }
@@ -801,6 +813,7 @@ class PaginationReader {
         this.removePaginationLayout();
         clearTimeout(this.resizeTimeout);
         clearTimeout(this.indicatorTimeout);
+        clearTimeout(this.scrollResetTimeout);
         this.initialized = false;
     }
 }
