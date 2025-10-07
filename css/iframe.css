@@ -8,6 +8,8 @@ body.scroll-mode {
     height: auto !important;
 }
 
+/* Book spine removed - caused visual frame/border effect */
+
 /* Click zone cursors for pagination mode */
 body.pagination-mode {
     cursor: default;

@@ -17,7 +17,7 @@ class PaginationReader {
 
         // Configuration
         this.config = {
-            pageGap: 40, // Gap between pages in pixels
+            pageGap: 60, // Gap between pages in pixels (center spine)
             animationDuration: 400, // ms
             animationEasing: 'cubic-bezier(0.4, 0, 0.2, 1)',
             clickZonePercent: 30, // 30% edges for navigation
@@ -150,24 +150,31 @@ class PaginationReader {
 
         const doc = this.iframeDoc;
 
-        // Add pagination class
+        // Add pagination class to iframe body
         this.iframeBody.classList.add('pagination-mode');
         this.iframeBody.classList.remove('scroll-mode');
+
+        // Add class to main body to hide floating buttons
+        document.body.classList.add('pagination-active');
 
         // Calculate page width
         this.pageWidth = window.innerWidth;
 
-        // Apply column styles
+        // 2-page spread: each "page" is half the viewport
+        const singlePageWidth = Math.floor(this.pageWidth / 2);
+
+        // Apply column styles for 2-page spread
+        // Keep original margin/padding for centered layout like scroll mode
         const style = `
             body.pagination-mode {
-                column-width: ${this.pageWidth}px !important;
+                column-width: ${singlePageWidth}px !important;
                 column-gap: ${this.config.pageGap}px !important;
                 column-fill: auto !important;
                 overflow-x: hidden !important;
                 overflow-y: hidden !important;
-                height: 100vh !important;
-                width: 100vw !important;
+                height: calc(100vh - 100px) !important;
                 position: relative !important;
+                box-sizing: border-box !important;
             }
 
             body.pagination-mode * {
@@ -183,6 +190,13 @@ class PaginationReader {
             body.pagination-mode blockquote {
                 break-inside: avoid !important;
                 page-break-inside: avoid !important;
+            }
+
+            body.pagination-mode h1,
+            body.pagination-mode h2,
+            body.pagination-mode h3,
+            body.pagination-mode h4 {
+                break-after: avoid !important;
             }
 
             body.pagination-mode {
@@ -210,6 +224,9 @@ class PaginationReader {
         this.iframeBody.classList.remove('pagination-mode');
         this.iframeBody.classList.add('scroll-mode');
 
+        // Remove class from main body
+        document.body.classList.remove('pagination-active');
+
         // Remove transform
         this.iframeBody.style.transform = '';
 
@@ -234,10 +251,16 @@ class PaginationReader {
 
             // Get content dimensions
             const contentWidth = this.iframeBody.scrollWidth;
-            const pageWidth = this.pageWidth + this.config.pageGap;
 
-            // Calculate total pages
-            this.totalPages = Math.ceil(contentWidth / pageWidth);
+            // Each "page" is half viewport + gap
+            const singlePageWidth = Math.floor(this.pageWidth / 2) + this.config.pageGap;
+
+            // Total number of single pages (columns)
+            const totalSinglePages = Math.ceil(contentWidth / singlePageWidth);
+
+            // Total spreads (pairs of pages) - rounded up
+            // Each spread shows 2 pages, so total spreads = ceiling(pages / 2)
+            this.totalPages = Math.ceil(totalSinglePages / 2);
             this.contentWidth = contentWidth;
 
             // Ensure current page is valid
@@ -251,7 +274,7 @@ class PaginationReader {
             // Update page indicator
             this.updatePageIndicator();
 
-            console.log(`Pages calculated: ${this.totalPages} pages, width: ${contentWidth}px`);
+            console.log(`Pages calculated: ${this.totalPages} spreads (${totalSinglePages} single pages), width: ${contentWidth}px`);
 
         } catch (error) {
             console.error('Calculate pages error:', error);
@@ -266,16 +289,17 @@ class PaginationReader {
     goToPage(pageNumber, animate = true) {
         if (!this.iframeBody || this.mode !== 'pagination') return;
 
-        // Clamp page number
+        // Clamp page number (page = spread number)
         pageNumber = Math.max(1, Math.min(pageNumber, this.totalPages));
 
         if (pageNumber === this.currentPage) return;
 
         this.currentPage = pageNumber;
 
-        // Calculate offset
-        const pageWidth = this.pageWidth + this.config.pageGap;
-        const offset = -(pageNumber - 1) * pageWidth;
+        // Calculate offset for 2-page spread
+        // Each spread shows 2 columns (pages), so offset by (spread - 1) * 2 * singlePageWidth
+        const singlePageWidth = Math.floor(this.pageWidth / 2) + this.config.pageGap;
+        const offset = -((pageNumber - 1) * 2 * singlePageWidth);
 
         // Apply transform
         if (animate) {
@@ -315,9 +339,20 @@ class PaginationReader {
      * Setup navigation event listeners
      */
     setupNavigation() {
-        // Keyboard navigation
+        // Remove any existing listeners first to prevent duplicates
+        this.removeNavigation();
+
+        // Keyboard navigation - use capture phase to run first
         this.boundHandlers.keydown = this.handleKeydown.bind(this);
-        document.addEventListener('keydown', this.boundHandlers.keydown);
+        document.addEventListener('keydown', this.boundHandlers.keydown, { capture: true });
+
+        // Also add to window for better capture
+        window.addEventListener('keydown', this.boundHandlers.keydown, { capture: true });
+
+        // Add to iframe document as well
+        if (this.iframeDoc) {
+            this.iframeDoc.addEventListener('keydown', this.boundHandlers.keydown, { capture: true });
+        }
 
         // Click zone navigation
         this.boundHandlers.click = this.handleClick.bind(this);
@@ -326,6 +361,8 @@ class PaginationReader {
         // Resize handling
         this.boundHandlers.resize = this.handleResize.bind(this);
         window.addEventListener('resize', this.boundHandlers.resize);
+
+        console.log('Pagination navigation setup complete with capture phase');
     }
 
     /**
@@ -333,7 +370,11 @@ class PaginationReader {
      */
     removeNavigation() {
         if (this.boundHandlers.keydown) {
-            document.removeEventListener('keydown', this.boundHandlers.keydown);
+            document.removeEventListener('keydown', this.boundHandlers.keydown, { capture: true });
+            window.removeEventListener('keydown', this.boundHandlers.keydown, { capture: true });
+            if (this.iframeDoc) {
+                this.iframeDoc.removeEventListener('keydown', this.boundHandlers.keydown, { capture: true });
+            }
         }
         if (this.boundHandlers.click) {
             this.iframe.removeEventListener('click', this.boundHandlers.click);
@@ -347,33 +388,64 @@ class PaginationReader {
      * Handle keyboard navigation
      */
     handleKeydown(e) {
+        // Debug logging for ALL keydown events in pagination mode
+        console.log(`[Pagination] Keydown: ${e.key}, mode: ${this.mode}, eventPhase: ${e.eventPhase}`);
+
         if (this.mode !== 'pagination') return;
+
+        let handled = false;
 
         switch (e.key) {
             case 'ArrowLeft':
+                console.log('[Pagination] ArrowLeft detected - going to prev page');
                 e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 this.prevPage();
+                handled = true;
                 break;
             case 'ArrowRight':
+                console.log('[Pagination] ArrowRight detected - going to next page');
                 e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 this.nextPage();
+                handled = true;
                 break;
             case 'Home':
                 e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 this.goToPage(1);
+                handled = true;
                 break;
             case 'End':
                 e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 this.goToPage(this.totalPages);
+                handled = true;
                 break;
             case 'PageUp':
                 e.preventDefault();
-                this.goToPage(Math.max(1, this.currentPage - 5));
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                // Jump 3 spreads (6 pages) back
+                this.goToPage(Math.max(1, this.currentPage - 3));
+                handled = true;
                 break;
             case 'PageDown':
                 e.preventDefault();
-                this.goToPage(Math.min(this.totalPages, this.currentPage + 5));
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                // Jump 3 spreads (6 pages) forward
+                this.goToPage(Math.min(this.totalPages, this.currentPage + 3));
+                handled = true;
                 break;
+        }
+
+        if (handled) {
+            console.log(`[Pagination] ✓ ${e.key} handled, page ${this.currentPage}/${this.totalPages}`);
         }
     }
 
@@ -441,7 +513,11 @@ class PaginationReader {
         if (!indicator) return;
 
         if (this.mode === 'pagination' && this.totalPages > 0) {
-            indicator.textContent = `${this.currentPage} / ${this.totalPages}`;
+            // Show 2-page spread format: "1-2 / 20"
+            const leftPage = (this.currentPage - 1) * 2 + 1;
+            const rightPage = Math.min(this.currentPage * 2, this.totalPages * 2);
+
+            indicator.textContent = `${leftPage}-${rightPage} / ${this.totalPages * 2}`;
             indicator.classList.remove('hidden');
 
             // Auto-hide after 2 seconds
@@ -655,12 +731,6 @@ class PaginationReader {
         }
     }
 
-    /**
-     * Save current page position
-     */
-    async savePagePosition() {
-        // Will implement with URL tracking
-    }
 
     /**
      * Cleanup
