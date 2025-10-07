@@ -10,6 +10,7 @@
     <div id="toolbar">
         <img src="../images/logo.png" alt="logo" class="logo">
         <div class="toolbar-controls">
+            <div class="icon-pagination toolbar-icon" data-cmd="toggle-pagination" title="Switch to Scroll Mode"></div>
             <div class="icon-copy toolbar-icon" data-cmd="copy" title="Copy all text content"></div>
             <div class="icon-print toolbar-icon" data-cmd="print" title="Print in the Reader View (Meta + P)"></div>
             <div class="icon-save toolbar-icon" data-cmd="save" title="Save in HTML format (Meta + S)"></div>
@@ -144,7 +145,11 @@
         <img src="../images/home.png" alt="Home" />
     </div>
 
+    <div id="page-indicator" class="page-indicator hidden">1 / 1</div>
+
     <script src="../js/browser-compatibility.js"></script>
+    <script src="../js/pagination-reader.js"></script>
+    <script src="../js/pagination-integration.js"></script>
     <script src="../js/line-highlighter-fixed.js"></script>
     <script src="../js/line-highlight-settings.js"></script>
     <script src="../js/line-highlighter-integration.js"></script>
