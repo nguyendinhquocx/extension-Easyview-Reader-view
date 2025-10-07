@@ -31,6 +31,9 @@ class PaginationReader {
         this.contentWidth = 0;
         this.lastResizeTime = 0;
 
+        // Position preservation
+        this.scrollPosition = 0; // Saved scroll position when switching from scroll mode
+
         // URL tracking
         this.currentUrl = null;
 
@@ -101,6 +104,9 @@ class PaginationReader {
     enablePagination() {
         if (!this.iframeBody) return;
 
+        // Save current scroll position before switching
+        this.saveScrollPosition();
+
         this.mode = 'pagination';
 
         // Apply pagination CSS
@@ -111,6 +117,9 @@ class PaginationReader {
 
         // Setup navigation
         this.setupNavigation();
+
+        // Restore position - go to page corresponding to scroll position
+        this.restorePositionFromScroll();
 
         // Update UI
         this.updateModeUI();
@@ -134,6 +143,9 @@ class PaginationReader {
 
         // Remove navigation listeners
         this.removeNavigation();
+
+        // Restore scroll position corresponding to current page
+        this.restoreScrollFromPage();
 
         // Update UI
         this.updateModeUI();
@@ -801,6 +813,91 @@ class PaginationReader {
             });
         } catch (error) {
             console.error('Save preferences error:', error);
+        }
+    }
+
+    /**
+     * Save current scroll position (from scroll mode)
+     */
+    saveScrollPosition() {
+        if (!this.iframeBody) return;
+
+        try {
+            // Get scroll position from iframe
+            const iframeDoc = this.iframe.contentDocument || this.iframe.contentWindow.document;
+            const scrollTop = iframeDoc.documentElement.scrollTop || iframeDoc.body.scrollTop;
+
+            this.scrollPosition = scrollTop;
+
+            console.log(`[Position] Saved scroll position: ${scrollTop}px`);
+        } catch (error) {
+            console.error('Error saving scroll position:', error);
+        }
+    }
+
+    /**
+     * Restore position in pagination mode from saved scroll position
+     */
+    restorePositionFromScroll() {
+        if (!this.iframeBody || this.totalPages === 0) return;
+
+        try {
+            // Calculate which page corresponds to the scroll position
+            const iframeDoc = this.iframe.contentDocument || this.iframe.contentWindow.document;
+            const scrollHeight = iframeDoc.documentElement.scrollHeight || iframeDoc.body.scrollHeight;
+            const viewportHeight = iframeDoc.documentElement.clientHeight;
+
+            // Calculate scroll percentage
+            const maxScroll = scrollHeight - viewportHeight;
+            const scrollPercent = maxScroll > 0 ? this.scrollPosition / maxScroll : 0;
+
+            // Map to page number
+            const targetPage = Math.max(1, Math.min(
+                Math.ceil(scrollPercent * this.totalPages),
+                this.totalPages
+            ));
+
+            // Go to that page (no animation for mode switch)
+            this.goToPage(targetPage, false);
+
+            console.log(`[Position] Restored to page ${targetPage} from scroll ${this.scrollPosition}px (${(scrollPercent * 100).toFixed(1)}%)`);
+        } catch (error) {
+            console.error('Error restoring position from scroll:', error);
+        }
+    }
+
+    /**
+     * Restore scroll position from current page (when switching to scroll mode)
+     */
+    restoreScrollFromPage() {
+        if (!this.iframeBody) return;
+
+        try {
+            const iframeDoc = this.iframe.contentDocument || this.iframe.contentWindow.document;
+            const scrollHeight = iframeDoc.documentElement.scrollHeight || iframeDoc.body.scrollHeight;
+            const viewportHeight = iframeDoc.documentElement.clientHeight;
+
+            // Calculate page percentage
+            const pagePercent = this.totalPages > 0 ? (this.currentPage - 1) / this.totalPages : 0;
+
+            // Map to scroll position
+            const maxScroll = scrollHeight - viewportHeight;
+            const targetScroll = Math.floor(pagePercent * maxScroll);
+
+            // Restore scroll position (use setTimeout to ensure layout is ready)
+            setTimeout(() => {
+                if (iframeDoc.documentElement) {
+                    iframeDoc.documentElement.scrollTop = targetScroll;
+                }
+                if (iframeDoc.body) {
+                    iframeDoc.body.scrollTop = targetScroll;
+                }
+
+                console.log(`[Position] Restored scroll to ${targetScroll}px from page ${this.currentPage} (${(pagePercent * 100).toFixed(1)}%)`);
+            }, 50);
+
+        } catch (error) {
+            console.error('Error restoring scroll from page:', error);
         }
     }
 
