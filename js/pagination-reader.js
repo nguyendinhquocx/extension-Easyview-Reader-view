@@ -104,22 +104,25 @@ class PaginationReader {
     enablePagination() {
         if (!this.iframeBody) return;
 
-        // Save current scroll position before switching
-        this.saveScrollPosition();
-
         this.mode = 'pagination';
+
+        // Save current scroll position BEFORE applying layout
+        this.saveScrollPosition();
 
         // Apply pagination CSS
         this.applyPaginationLayout();
 
-        // Calculate pages
+        // Calculate pages (needs layout to be applied first)
         this.calculatePages();
 
         // Setup navigation
         this.setupNavigation();
 
         // Restore position - go to page corresponding to scroll position
-        this.restorePositionFromScroll();
+        // Add slight delay to ensure pagination layout is complete
+        setTimeout(() => {
+            this.restorePositionFromScroll();
+        }, 100);
 
         // Update UI
         this.updateModeUI();
@@ -600,16 +603,18 @@ class PaginationReader {
      * Update mode toggle button UI
      */
     updateModeUI() {
-        const toggleBtn = document.querySelector('[data-cmd="toggle-pagination"]');
-        if (!toggleBtn) return;
+        const toggleBtns = document.querySelectorAll('[data-cmd="toggle-pagination"]');
+        if (toggleBtns.length === 0) return;
 
-        if (this.mode === 'pagination') {
-            toggleBtn.classList.add('pagination-active');
-            toggleBtn.title = 'Switch to Scroll Mode';
-        } else {
-            toggleBtn.classList.remove('pagination-active');
-            toggleBtn.title = 'Switch to Book Mode';
-        }
+        toggleBtns.forEach(toggleBtn => {
+            if (this.mode === 'pagination') {
+                toggleBtn.classList.add('pagination-active');
+                toggleBtn.title = 'Switch to Scroll Mode';
+            } else {
+                toggleBtn.classList.remove('pagination-active');
+                toggleBtn.title = 'Switch to Book Mode';
+            }
+        });
 
         // Disable page width slider in pagination mode
         this.updatePageWidthSlider();
