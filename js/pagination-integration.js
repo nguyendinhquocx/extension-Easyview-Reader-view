@@ -83,22 +83,24 @@
     }
 
     function setupToggleButton() {
-        const toggleBtn = document.querySelector('[data-cmd="toggle-pagination"]');
+        const toggleBtns = document.querySelectorAll('[data-cmd="toggle-pagination"]');
 
-        if (!toggleBtn) {
+        if (toggleBtns.length === 0) {
             console.warn('Pagination toggle button not found');
             return;
         }
 
-        toggleBtn.addEventListener('click', () => {
-            if (paginationReader) {
-                paginationReader.toggleMode();
-            } else {
-                console.warn('PaginationReader not initialized yet');
-            }
+        toggleBtns.forEach(toggleBtn => {
+            toggleBtn.addEventListener('click', () => {
+                if (paginationReader) {
+                    paginationReader.toggleMode();
+                } else {
+                    console.warn('PaginationReader not initialized yet');
+                }
+            });
         });
 
-        console.log('Pagination toggle button setup complete');
+        console.log(`Pagination toggle button setup complete (${toggleBtns.length} buttons)`);
     }
 
     function setupSettingsPanel() {

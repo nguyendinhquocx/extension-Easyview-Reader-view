@@ -10,7 +10,7 @@ class PaginationReader {
         this.iframeBody = null;
 
         // State
-        this.mode = 'pagination'; // 'pagination' or 'scroll'
+        this.mode = 'scroll'; // 'pagination' or 'scroll' - DEFAULT: scroll
         this.currentPage = 1;
         this.totalPages = 0;
         this.isCalculating = false;

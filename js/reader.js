@@ -4479,18 +4479,8 @@
                 document.addEventListener("keydown", j);
             }
             setTips() {
-                var D;
-                const h = [ "By selecting the actual content or part of it before switching to the reader view, you can prevent unwanted content from cluttering your view. This is also useful if the automatic selection module fails to detect the correct content." ];
-                (D = document.querySelector("#tips input")) === null || D === void 0 || D.addEventListener("click", (() => {
-                    document.body.dataset.tips = String(false);
-                }));
-                for (let D = 0; D < h.length; D += 1) if (localStorage.getItem("tip." + D) !== "s") {
-                    localStorage.setItem("tip." + D, "s");
-                    const z = document.querySelector("#tips span");
-                    if (z) z.textContent = h[D];
-                    document.body.dataset.tips = String(true);
-                    break;
-                }
+                // Tips disabled - no notification messages
+                document.body.dataset.tips = String(false);
             }
         }
         z.default = A;
